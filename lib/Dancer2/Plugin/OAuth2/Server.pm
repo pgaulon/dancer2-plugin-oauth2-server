@@ -89,8 +89,9 @@ sub _authorization_request {
     my $state_required = $settings->{state_required} // 0;
     if(
         $state_required
-            and ! defined $state
-            and ! length $state
+            and not (defined $state
+                 and length $state
+                 and not ($state =~ /[\000-\037]/))
     ) {
         $dsl->status( 400 );
         return $dsl->to_json(
@@ -103,6 +104,8 @@ sub _authorization_request {
     }
 
     my $uri = URI->new( $url );
+    #TODO: Check if ref($uri) is URI::http, to avoid bug with $uri->query_param_append with URI::data for instance
+
     my ( $res,$error ) = $server->verify_client($dsl, $settings, $c_id, \@scopes, $url );
 
     if ( $res ) {
@@ -145,6 +148,7 @@ sub _authorization_request {
 
     $uri->query_param_append( state => $state ) if defined( $state );
 
+    #TODO: fix redirect even if $res from verify_client is 0 dangerous, see https://tools.ietf.org/id/draft-bradley-oauth-open-redirector-02.txt
     $dsl->redirect( $uri );
 }
 
